@@ -10,11 +10,8 @@ if __name__ == "__main__":
     if line == "": continue
     # process the line with the client
     try:
-      client.connect()
-      client.send(line)
-      # wait for a response from the server
-      response = client.wait_receive().decode('utf-8')
-      client.close()
+      # attempt to connect, send, receive, and close interactions with the server
+      response = client.send_receive(line)
     except Exception as ex:
       response = "Could not make a connection to the server\n"
       response += "reason: %s" % ex

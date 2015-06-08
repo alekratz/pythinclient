@@ -48,7 +48,18 @@ class ThinClient:
         :return: the string read from the server
         """
         self.__verify_connection()
-        return self.sock.recv(self.recv_size)
+        return self.sock.recv(self.recv_size).decode('utf-8')
+
+    def send_receive(self, message):
+        """
+        Creates a connection to the server, sends the message, waits on a
+        response, closes the connection, and returns the server's response.
+        """
+        self.connect()
+        self.send(message)
+        response = self.wait_receive()
+        self.close()
+        return response
 
     def __verify_connection(self):
         """
