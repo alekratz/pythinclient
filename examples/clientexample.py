@@ -6,7 +6,10 @@ if __name__ == "__main__":
   client = BasicThinClient(65000)
   running = True
   while running:
-    line = input("> ")
+    try:
+      line = input("> ")
+    except (KeyboardInterrupt, EOFError):
+      break
     if line == "": continue
     # process the line with the client
     try:
