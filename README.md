@@ -6,8 +6,8 @@ Pythinclient is a library used for implementing socket-based thin clients in Pyt
 
 List of features that we need for v0.2:
 * ~~Asynchronous server; one that can handle more than one client at a time~~
-* More examples
-* Unit tests?
+* ~~More examples~~
+* Unit tests
 
 # License
 BSD 3-clause license
