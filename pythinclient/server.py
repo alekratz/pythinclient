@@ -4,6 +4,7 @@ import abc
 from socket import socket
 from os.path import exists
 from os import fork
+from threading import Thread
 
 
 class ThinServer:
@@ -26,6 +27,7 @@ class ThinServer:
         self.is_running = False
         self.lockfile = lockfile
         self.hooks = {}
+        self.child_pid = -1
 
     def start(self):
         assert ((self.sock is None) == (not self.is_running))
@@ -49,6 +51,7 @@ class ThinServer:
             else:
                 # parent section
                 # create the lockfile and put the PID inside of it
+                self.child_pid = child
                 with open(self.lockfile, "w") as fp:
                     fp.write(str(child))
         else:
@@ -97,7 +100,24 @@ class ThinServer:
         :param conn: the socket connection that sent the message
         :param addr: the address of the connection that sent the message
         """
-        return
+        # if the message has a length of zero, break out
+        if len(message) == 0:
+            return
+        # convert the message back to a string
+        message = message.decode('utf-8')
+        # get the first word of the message, and use that to figure out what the command was    
+        command = message.split()[0]
+        if command in self.hooks:
+            try:
+                self.hooks[command](message, conn, addr)
+                result_message = b"OK"
+            except Exception as ex:
+                result_message = ("Server reported error: " + str(ex)).encode('ascii')
+        else:
+            result_message = b"Bad command"
+
+        conn.send(result_message)
+
 
 class BasicThinServer(ThinServer):
     """
@@ -120,27 +140,57 @@ class BasicThinServer(ThinServer):
         # close the connection
         conn.close()
 
-    def on_receive(self, message, conn, addr):
-        """
-        Routes the received message to the correct handler
-        :param message: the message that was received
-        :param conn: the socket connection that sent the message
-        :param addr: the address of the connection that sent the message
-        """
-        # if the message has a length of zero, break out
-        if len(message) == 0:
-            return
-        # convert the message back to a string
-        message = message.decode('utf-8')
-        # get the first word of the message, and use that to figure out what the command was    
-        command = message.split()[0]
-        if command in self.hooks:
-            try:
-                self.hooks[command](message, conn, addr)
-                result_message = b"OK"
-            except Exception as ex:
-                result_message = ("Server reported error: " + str(ex)).encode('ascii')
-        else:
-            result_message = b"Bad command"
 
-        conn.send(result_message)
+class AsyncThinServer(ThinServer):
+    def __init__(self, port=65000, host='127.0.0.1', recv_size=1024, is_daemon=False, lockfile="/tmp/pythinclient.pid"):
+        super(AsyncThinServer, self).__init__(port, host, recv_size, is_daemon, lockfile)
+        # Connections are indexed by their address tuples
+        self.__connections = {}
+
+    def on_accept(self, conn, addr):
+        """
+        Handles what happens when a connection is accepted to the thin server.
+        :param conn: the socket connection that connected to the server
+        :param addr: the address that connected to the server
+        """
+        assert (addr not in self.__connections)
+
+        # create an asynchronous listener for this connection
+        listener = AsyncListener(conn, addr, self)
+        self.__connections[addr] = listener
+        listener.start()
+
+    def on_receive(self, message, conn, addr):
+        # call the basic onreceive stuff
+        print("on_receive recieved message of %s bytes" % len(message))
+        super(AsyncThinServer, self).on_receive(message, conn, addr)
+        # check to see if the listener is still alive; if not, remove it
+        if not self.__connections[addr].alive:
+            print("deleting connection from %s" % str(addr))
+            del self.__connections[addr]
+            print("%s connections to the server right now" % len(self.__connections))
+
+
+class AsyncListener(Thread):
+    def __init__(self, conn, addr, thin_server):
+        """
+        Initializes a single connection listener for a client.
+        """
+        super(AsyncListener, self).__init__()
+        self.conn = conn
+        self.addr = addr
+        self.thin_server = thin_server
+        self.alive = False
+
+    def run(self):
+        assert not self.alive
+        self.__listen_loop()
+
+    def __listen_loop(self):
+        self.alive = True
+        while self.alive:
+            message = self.conn.recv(self.thin_server.recv_size)
+            print("Thread recieved message of %s bytes" % len(message))
+            if len(message) == 0:
+                self.alive = False
+            self.thin_server.on_receive(message, self.conn, self.addr)
