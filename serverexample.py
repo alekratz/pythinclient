@@ -15,7 +15,6 @@ def server_echo(msg, conn, addr):
   conn.send((msg + '\n').encode('ascii'))
 
 def server_log(msg, conn, addr):
-  msg = msg.decode('utf-8')
   # write the given message to the logfile
   with open("server.log", "a+") as fp:
     fp.write(msg + '\n')
