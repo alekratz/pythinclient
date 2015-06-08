@@ -25,6 +25,7 @@ class ThinServer:
         self.is_daemon = is_daemon
         self.is_running = False
         self.lockfile = lockfile
+        self.hooks = {}
 
     def start(self):
         assert ((self.sock is None) == (not self.is_running))
@@ -44,7 +45,7 @@ class ThinServer:
                 self.sock = socket()
                 self.sock.bind((self.host, self.port))
                 self.sock.listen(1)
-                self.__accept_loop()
+                self._accept_loop()
             else:
                 # parent section
                 # create the lockfile and put the PID inside of it
@@ -55,41 +56,7 @@ class ThinServer:
             self.sock = socket()
             self.sock.bind((self.host, self.port))
             self.sock.listen(1)
-            self.__accept_loop()
-
-    def __accept_loop(self):
-        """
-        Private helper method that accepts clients
-        :return:
-        """
-        assert self.sock
-        assert self.is_running
-
-        while self.is_running:
-            conn, addr = self.sock.accept()
-            message = conn.recv(self.recv_size)
-            self.on_receive(message, conn, addr)
-
-    @abc.abstractmethod
-    def on_receive(self, message, conn, addr):
-        """
-        Handles the receiving of a message from a client
-        :param message: the message that was received
-        :param conn: the socket connection that sent the message
-        :param addr: the address of the connection that sent the message
-        :return:
-        """
-        return
-
-class BasicThinServer(ThinServer):
-    """
-    A basic thin server that can be extended by adding method hooks. Check the add_hook method documentation on how to
-    do so. This thin server can be used with the BasicThinClient.
-    """
-    def __init__(self, port=65000, is_daemon=False):
-        super(BasicThinServer, self).__init__(port)
-        self.hooks = {}
-        self.is_daemon = is_daemon
+            self._accept_loop()
 
     def add_hook(self, command, method):
         """
@@ -101,6 +68,58 @@ class BasicThinServer(ThinServer):
         """
         self.hooks[command] = method
 
+    def _accept_loop(self):
+        """
+        Private helper method that accepts clients
+        :return:
+        """
+        assert self.sock
+        assert self.is_running
+
+        while self.is_running:
+            conn, addr = self.sock.accept()
+            self.on_accept(conn, addr)
+
+    @abc.abstractmethod
+    def on_accept(self, conn, addr):
+        """
+        Handles what happens when a connection is accepted to the thin server.
+        :param conn: the socket connection that connected to the server
+        :param addr: the address that connected to the server
+        """
+        return
+
+    @abc.abstractmethod
+    def on_receive(self, message, conn, addr):
+        """
+        Handles the receiving of a message from a client
+        :param message: the message that was received
+        :param conn: the socket connection that sent the message
+        :param addr: the address of the connection that sent the message
+        """
+        return
+
+class BasicThinServer(ThinServer):
+    """
+    A basic thin server that can be extended by adding method hooks. Check the add_hook method documentation on how to
+    do so. This thin server can be used with the BasicThinClient.
+    """
+    def __init__(self, port=65000, host='127.0.0.1', recv_size=1024, is_daemon=False, lockfile="/tmp/pythinclient.pid"):
+        super(BasicThinServer, self).__init__(port, host, recv_size, is_daemon, lockfile)
+
+    def on_accept(self, conn, addr):
+        """
+        Handles what happens when a connection is accepted to the thin server.
+        :param conn: the socket connection that connected to the server
+        :param addr: the address that connected to the server
+        """
+        # receive the message
+        message = conn.recv(self.recv_size)
+        # handle the message
+        self.on_receive(message, conn, addr)
+        # close the connection
+        conn.close()
+
     def on_receive(self, message, conn, addr):
         """
         Routes the received message to the correct handler
@@ -108,9 +127,9 @@ class BasicThinServer(ThinServer):
         :param conn: the socket connection that sent the message
         :param addr: the address of the connection that sent the message
         """
-        # if the message has a length of zero, close its connection
+        # if the message has a length of zero, break out
         if len(message) == 0:
-            conn.close()
+            return
         # convert the message back to a string
         message = message.decode('utf-8')
         # get the first word of the message, and use that to figure out what the command was    
@@ -125,4 +144,3 @@ class BasicThinServer(ThinServer):
             result_message = b"Bad command"
 
         conn.send(result_message)
-        conn.close()
