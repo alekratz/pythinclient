@@ -1,6 +1,7 @@
 __author__ = 'Alek Ratzloff <alekratz@gmail.com>'
 
 import abc
+import sys
 from socket import socket
 from os.path import exists
 from os import fork
@@ -48,6 +49,7 @@ class ThinServer:
                 self.sock.bind((self.host, self.port))
                 self.sock.listen(1)
                 self._accept_loop()
+                sys.exit(0)
             else:
                 # parent section
                 # create the lockfile and put the PID inside of it
