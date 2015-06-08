@@ -92,7 +92,6 @@ class ThinServer:
         """
         return
 
-    @abc.abstractmethod
     def on_receive(self, message, conn, addr):
         """
         Handles the receiving of a message from a client
