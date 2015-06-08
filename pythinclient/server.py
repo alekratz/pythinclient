@@ -161,7 +161,6 @@ class AsyncThinServer(ThinServer):
 
     def on_receive(self, message, conn, addr):
         # call the basic onreceive stuff
-        print("on_receive recieved message of %s bytes" % len(message))
         super(AsyncThinServer, self).on_receive(message, conn, addr)
         # check to see if the listener is still alive; if not, remove it
         if not self.__connections[addr].alive:
@@ -189,7 +188,6 @@ class AsyncListener(Thread):
         self.alive = True
         while self.alive:
             message = self.conn.recv(self.thin_server.recv_size)
-            print("Thread recieved message of %s bytes" % len(message))
             if len(message) == 0:
                 self.alive = False
             self.thin_server.on_receive(message, self.conn, self.addr)
