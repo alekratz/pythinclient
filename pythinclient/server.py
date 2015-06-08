@@ -116,8 +116,11 @@ class BasicThinServer(ThinServer):
         # get the first word of the message, and use that to figure out what the command was    
         command = message.split()[0]
         if command in self.hooks:
-            self.hooks[command](message, conn, addr)
-            result_message = b"OK"
+            try:
+                self.hooks[command](message, conn, addr)
+                result_message = b"OK"
+            except Exception as ex:
+                result_message = ("Server reported error: " + str(ex)).encode('ascii')
         else:
             result_message = b"Bad command"
 
