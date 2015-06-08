@@ -164,9 +164,10 @@ class AsyncThinServer(ThinServer):
         super(AsyncThinServer, self).on_receive(message, conn, addr)
         # check to see if the listener is still alive; if not, remove it
         if not self.__connections[addr].alive:
-            print("deleting connection from %s" % str(addr))
             del self.__connections[addr]
-            print("%s connections to the server right now" % len(self.__connections))
+            # TODO : log these when we can log stuff
+            # print("deleting connection from %s" % str(addr))
+            # print("%s connections to the server right now" % len(self.__connections))
 
 
 class AsyncListener(Thread):
