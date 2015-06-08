@@ -71,4 +71,4 @@ class ThinClient:
 
 class BasicThinClient(ThinClient):
     def __init__(self, port=65000, host="127.0.0.1", recv_size=1024):
-        super(BasicThinClient).__init__(port, host, recv_size)
+        super(BasicThinClient, self).__init__(port, host, recv_size)
