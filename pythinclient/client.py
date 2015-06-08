@@ -68,5 +68,7 @@ class ThinClient:
         if not self.sock:
             raise Exception("Client is not connected to the server")
 
-# For now, there is no difference between the BasicThinClient and ThinClient.
-BasicThinClient = ThinClient
+
+class BasicThinClient(ThinClient):
+    def __init__(self, port=65000, host="127.0.0.1", recv_size=1024):
+        super(BasicThinClient).__init__(port, host, recv_size)
