@@ -2,9 +2,9 @@ __author__ = 'Alek Ratzloff <alekratz@gmail.com>'
 
 import abc
 import sys
+import os
 from socket import socket
 from os.path import exists
-from os import fork
 from threading import Thread
 
 
@@ -38,9 +38,11 @@ class ThinServer:
         # determine if this is a daemonized server, and check to see if the lockfile is already taken
         if self.is_daemon:
             if exists(self.lockfile):
-                raise Exception("Daemonized server is already running")
+                with open(self.lockfile, "r") as fp:
+                    pid = fp.read()
+                raise Exception("Daemonized server is already running with PID %s" % pid)
             # fork
-            child = fork()
+            child = os.fork()
             if child == -1:
                 raise Exception("Failed to fork for daemon")
             elif child == 0:
@@ -48,8 +50,15 @@ class ThinServer:
                 self.sock = socket()
                 self.sock.bind((self.host, self.port))
                 self.sock.listen(1)
-                self._accept_loop()
-                sys.exit(0)
+                try:
+                    self._accept_loop()
+                except KeyboardInterrupt:
+                    # nothing to do here, just silently accept it
+                    pass
+                finally:
+                    # clean up the lockfile and exit cleanly
+                    os.remove(self.lockfile)
+                    sys.exit(0)
             else:
                 # parent section
                 # create the lockfile and put the PID inside of it
