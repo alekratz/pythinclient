@@ -10,7 +10,7 @@ if __name__ == "__main__":
       line = input("> ")
     except (KeyboardInterrupt, EOFError):
       break
-    if line == "": continue
+    if not bool(line.strip()): continue
     # process the line with the client
     try:
       # attempt to connect, send, receive, and close interactions with the server
