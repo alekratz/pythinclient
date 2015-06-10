@@ -9,5 +9,9 @@ List of features that we need for v0.2:
 * ~~More examples~~
 * Unit tests
 
+List of features that we need for v0.3:
+* kwargs for server hooks
+*
+
 # License
 BSD 3-clause license

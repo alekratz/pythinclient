@@ -3,7 +3,7 @@ __author__ = 'Alek Ratzloff <alekratz@gmail.com>'
 import abc
 import sys
 import os
-from socket import socket
+from socket import socket, timeout
 from os.path import exists
 from threading import Thread
 
@@ -29,6 +29,10 @@ class ThinServer:
         self.lockfile = lockfile
         self.hooks = {}
         self.child_pid = -1
+
+    def stop(self):
+        assert self.is_running
+        self.is_running = False
 
     def start(self):
         assert ((self.sock is None) == (not self.is_running))
@@ -70,6 +74,7 @@ class ThinServer:
             self.sock = socket()
             self.sock.bind((self.host, self.port))
             self.sock.listen(1)
+            self.sock.settimeout(1.0)
             self._accept_loop()
 
     def add_hook(self, command, method):
@@ -91,8 +96,12 @@ class ThinServer:
         assert self.is_running
 
         while self.is_running:
-            conn, addr = self.sock.accept()
-            self.on_accept(conn, addr)
+            try:
+                conn, addr = self.sock.accept()
+                self.on_accept(conn, addr)
+            except timeout:
+                # do nothing
+                pass
 
     @abc.abstractmethod
     def on_accept(self, conn, addr):
@@ -120,11 +129,13 @@ class ThinServer:
         if command in self.hooks:
             try:
                 self.hooks[command](message, conn, addr)
-                result_message = b"OK"
+                result_message = b"\nOK"
             except Exception as ex:
-                result_message = ("Server reported error: " + str(ex)).encode('ascii')
+                result_message = ("Server reported error: " + str(ex)).encode('ascii') \
+                    + b"\nERR"
         else:
-            result_message = b"Bad command"
+            result_message = b"Bad command" \
+                             b"\nERR"
 
         conn.send(result_message)
 
@@ -134,6 +145,7 @@ class BasicThinServer(ThinServer):
     A basic thin server that can be extended by adding method hooks. Check the add_hook method documentation on how to
     do so. This thin server can be used with the BasicThinClient.
     """
+
     def __init__(self, port=65000, host='127.0.0.1', recv_size=1024, is_daemon=False, lockfile="/tmp/pythinclient.pid"):
         super(BasicThinServer, self).__init__(port, host, recv_size, is_daemon, lockfile)
 
